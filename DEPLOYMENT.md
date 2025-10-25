@@ -43,12 +43,14 @@ In the web service settings, add these environment variables:
 | Key | Value |
 |-----|-------|
 | `FLASK_ENV` | `production` |
-| `DATABASE_URL` | Paste the Internal Database URL from step 2 |
+| `DATABASE_URL` | Paste the Internal Database URL from step 2 (**Render format is fine - auto-converted**) |
 | `BASE_URL` | Your Render service URL (e.g., `https://musication-backend.onrender.com`) |
 | `FRONTEND_URL` | Your Netlify URL (e.g., `https://musication.netlify.app`) |
 | `UPLOAD_DIR` | `uploads` |
 
-**Note**: For `BASE_URL`, you won't know the full URL until after first deploy. You can:
+**Note**: 
+- Render provides `DATABASE_URL` as `postgresql://...` which is automatically converted to use psycopg v3 (`postgresql+psycopg://`). You don't need to modify it.
+- For `BASE_URL`, you won't know the full URL until after first deploy. You can:
 - Leave it empty initially and update after deployment
 - Or use the format: `https://musication-backend.onrender.com`
 
