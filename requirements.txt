@@ -5,3 +5,8 @@ alembic
 flask-cors
 psycopg[binary]
 gunicorn
+librosa
+numpy
+scipy
+pydub
+torch

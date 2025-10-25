@@ -192,6 +192,43 @@ def delete_track(track_id):
         db.close()
 
 
+@app.post("/tracks/<uuid:track_id>/analyze")
+def analyze_track(track_id):
+    """
+    Trigger analysis for a track.
+    TODO: Implement actual audio analysis with librosa.
+    For now, creates a pending Analysis record.
+    """
+    db = SessionLocal()
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if not track:
+            return jsonify({"error": "track not found"}), 404
+        
+        # Create Analysis record with pending status
+        analysis = Analysis(
+            track_id=track_id,
+            method="similarity_detection",
+            status="pending",
+            summary="Analysis queued - awaiting implementation"
+        )
+        db.add(analysis)
+        db.commit()
+        db.refresh(analysis)
+        
+        return jsonify({
+            "message": "Analysis started",
+            "analysis": {
+                "id": str(analysis.id),
+                "track_id": str(track_id),
+                "status": analysis.status,
+                "created_at": analysis.created_at.isoformat() if analysis.created_at else None
+            }
+        }), 201
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     # Use PORT from environment (Render sets this) or fall back to settings
     port = int(os.environ.get("PORT", settings.port))
