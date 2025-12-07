@@ -10,3 +10,6 @@ numpy
 scipy
 pydub
 torch
+audioread
+requests
+matplotlib

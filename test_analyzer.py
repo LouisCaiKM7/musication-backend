@@ -59,5 +59,5 @@ if __name__ == "__main__":
         print("Example: python test_analyzer.py uploads/test.mp3")
         sys.exit(1)
     
-    audio_path = r"E:\KuGou\bb.mp3"
+    audio_path = sys.argv[1]
     test_analyzer(audio_path)

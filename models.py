@@ -50,11 +50,11 @@ class Analysis(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "method IN ('chromaprint','hpcp','dtw','lyrics','other')",
+            "method IN ('chromaprint','hpcp','dtw','lyrics','music_identification','similarity_detection','other')",
             name="analyses_method_check",
         ),
         CheckConstraint(
-            "status IN ('pending','running','succeeded','failed')",
+            "status IN ('pending','processing','running','completed','succeeded','failed')",
             name="analyses_status_check",
         ),
         Index("idx_analyses_track_id", "track_id"),
@@ -79,7 +79,7 @@ class Artifact(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "artifact_type IN ('chromaprint','hpcp','dtw_matrix','dtw_path','plot_image','feature_json','other')",
+            "artifact_type IN ('chromaprint','hpcp','dtw_matrix','dtw_path','plot_image','feature_json','music_matches','other')",
             name="artifacts_type_check",
         ),
         CheckConstraint(

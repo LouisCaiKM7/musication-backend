@@ -1,15 +1,29 @@
 import os
 import uuid
 import hashlib
+import json
+from datetime import datetime
 from flask import Flask, jsonify, send_from_directory, request
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
+
+# Set FPCALC path before importing music_identifier
+if 'FPCALC' not in os.environ:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    fpcalc_path = os.path.join(base_dir, 'pyacoustid', 'fpcalc.exe')
+    if os.path.exists(fpcalc_path):
+        os.environ['FPCALC'] = fpcalc_path
+        print(f"[APP] Set FPCALC path: {fpcalc_path}")
+
 from flask_cors import CORS
 from config import settings
 from database import engine, SessionLocal
 from models import Base, Track, Analysis, Artifact
-
-load_dotenv()
+from services.music_identifier import identify_music
+from services.audio_analyzer import AudioAnalyzer
 
 app = Flask(__name__)
 
@@ -195,9 +209,8 @@ def delete_track(track_id):
 @app.post("/tracks/<uuid:track_id>/analyze")
 def analyze_track(track_id):
     """
-    Trigger analysis for a track.
-    TODO: Implement actual audio analysis with librosa.
-    For now, creates a pending Analysis record.
+    Trigger music identification analysis for a track.
+    Uses Acoustid/MusicBrainz to identify the song.
     """
     db = SessionLocal()
     try:
@@ -205,26 +218,95 @@ def analyze_track(track_id):
         if not track:
             return jsonify({"error": "track not found"}), 404
         
-        # Create Analysis record with pending status
+        # Create Analysis record with processing status
         analysis = Analysis(
             track_id=track_id,
-            method="similarity_detection",
-            status="pending",
-            summary="Analysis queued - awaiting implementation"
+            method="music_identification",
+            status="processing",
+            summary="Identifying music..."
         )
         db.add(analysis)
         db.commit()
         db.refresh(analysis)
         
-        return jsonify({
-            "message": "Analysis started",
-            "analysis": {
-                "id": str(analysis.id),
-                "track_id": str(track_id),
-                "status": analysis.status,
-                "created_at": analysis.created_at.isoformat() if analysis.created_at else None
-            }
-        }), 201
+        # Extract local file path from audio_url
+        try:
+            filename = track.audio_url.split('/media/')[-1]
+            audio_path = os.path.join(settings.upload_dir, filename)
+            
+            if not os.path.exists(audio_path):
+                analysis.status = "failed"
+                analysis.summary = "Audio file not found on server"
+                db.commit()
+                return jsonify({"error": "audio file not found"}), 404
+            
+            # Perform music identification
+            print(f"Identifying music for track: {track.title}")
+            result = identify_music(audio_path, max_results=5)
+            
+            if result["success"]:
+                # Save identification results
+                analysis.status = "completed"
+                analysis.completed_at = datetime.utcnow()
+                
+                # Create summary
+                if result["matches"]:
+                    best_match = result["matches"][0]
+                    analysis.summary = f"Identified as: {best_match['artist']} - {best_match['title']} ({best_match['score']}% match)"
+                else:
+                    analysis.summary = "No matches found for this audio"
+                
+                # Save matches as artifacts (even if empty)
+                artifact = Artifact(
+                    analysis_id=analysis.id,
+                    artifact_type="music_matches",
+                    content_type="application/json",
+                    data_json=result["matches"]
+                )
+                db.add(artifact)
+                
+                db.commit()
+                db.refresh(analysis)
+                
+                return jsonify({
+                    "message": "Analysis completed successfully",
+                    "analysis": {
+                        "id": str(analysis.id),
+                        "track_id": str(track_id),
+                        "status": analysis.status,
+                        "summary": analysis.summary,
+                        "matches": result["matches"],
+                        "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+                        "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None
+                    }
+                }), 200
+            else:
+                # Identification failed
+                analysis.status = "failed"
+                analysis.summary = result["error"]
+                db.commit()
+                
+                return jsonify({
+                    "message": "Analysis failed",
+                    "analysis": {
+                        "id": str(analysis.id),
+                        "track_id": str(track_id),
+                        "status": analysis.status,
+                        "summary": analysis.summary,
+                        "error": result["error"]
+                    }
+                }), 200
+                
+        except Exception as e:
+            analysis.status = "failed"
+            analysis.summary = f"Error during analysis: {str(e)}"
+            db.commit()
+            print(f"Analysis error: {str(e)}")
+            
+            return jsonify({
+                "error": "Analysis failed",
+                "message": str(e)
+            }), 500
     finally:
         db.close()
 
