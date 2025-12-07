@@ -11,27 +11,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set FPCALC path if not already set
 if 'FPCALC' not in os.environ:
-    # Try to find fpcalc.exe in pyacoustid directory
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    fpcalc_path = r"C:\ProgramData\chocolatey\lib\chromaprint\tools\chromaprint-fpcalc-1.1-win-x86_64\fpcalc.exe"
+    # Try different paths based on OS
+    import platform
     
-    print(f"DEBUG: Looking for fpcalc at: {fpcalc_path}")
-    print(f"DEBUG: File exists: {os.path.exists(fpcalc_path)}")
-    
-    if os.path.exists(fpcalc_path):
-        os.environ['FPCALC'] = fpcalc_path
-        print(f"✅ Using fpcalc from: {fpcalc_path}")
+    if platform.system() == 'Windows':
+        # Windows paths
+        possible_paths = [
+            r"C:\ProgramData\chocolatey\lib\chromaprint\tools\chromaprint-fpcalc-1.1-win-x86_64\fpcalc.exe",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'pyacoustid', 'fpcalc.exe'),
+        ]
     else:
-        # Try Chocolatey installation path
-        choco_path = r"C:\ProgramData\chocolatey\lib\chromaprint\tools\chromaprint-fpcalc-1.1-win-x86_64\fpcalc.exe"
-        print(f"DEBUG: Trying Chocolatey path: {choco_path}")
-        print(f"DEBUG: Chocolatey file exists: {os.path.exists(choco_path)}")
-        
-        if os.path.exists(choco_path):
-            os.environ['FPCALC'] = choco_path
-            print(f"✅ Using fpcalc from Chocolatey: {choco_path}")
-        else:
-            print("⚠️ Warning: fpcalc.exe not found in expected locations")
+        # Linux/Docker paths
+        possible_paths = [
+            '/usr/bin/fpcalc',
+            '/usr/local/bin/fpcalc',
+        ]
+    
+    fpcalc_found = False
+    for fpcalc_path in possible_paths:
+        if os.path.exists(fpcalc_path):
+            os.environ['FPCALC'] = fpcalc_path
+            print(f"✅ Using fpcalc from: {fpcalc_path}")
+            fpcalc_found = True
+            break
+    
+    if not fpcalc_found:
+        print(f"⚠️ Warning: fpcalc not found in any expected location")
+        print(f"   Searched: {possible_paths}")
 else:
     print(f"✅ Using FPCALC from environment: {os.environ['FPCALC']}")
 
