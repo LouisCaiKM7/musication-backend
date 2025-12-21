@@ -16,13 +16,7 @@ services:
       - key: BASE_URL
         sync: false
       - key: FRONTEND_URL
-        value: https://musicationapp.netlify.app/
-      - key: UPLOAD_DIR
-        value: /opt/render/project/src/uploads
-    disk:
-      name: uploads-disk
-      mountPath: /opt/render/project/src/uploads
-      sizeGB: 10
+        value: https://musication.netlify.app/
 
 databases:
   - name: musication-db

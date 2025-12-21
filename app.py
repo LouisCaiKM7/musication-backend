@@ -72,8 +72,34 @@ def library_stats():
 
 
 @app.get("/media/<path:filename>")
-def serve_media(filename: str):
-    return send_from_directory(settings.upload_dir, filename)
+def serve_media(filename):
+    """
+    Serve audio files from database blob storage.
+    """
+    # Extract UUID from filename
+    file_id = os.path.splitext(filename)[0]
+    
+    db = SessionLocal()
+    try:
+        # Find track by audio_url pattern
+        track = db.query(Track).filter(Track.audio_url.like(f"%{file_id}%")).first()
+        if not track or not track.audio_blob:
+            return jsonify({"error": "File not found"}), 404
+        
+        from flask import Response
+        # Determine content type based on extension
+        ext = os.path.splitext(filename)[1].lower()
+        content_type = {
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.ogg': 'audio/ogg',
+            '.m4a': 'audio/mp4',
+            '.flac': 'audio/flac'
+        }.get(ext, 'application/octet-stream')
+        
+        return Response(track.audio_blob, mimetype=content_type)
+    finally:
+        db.close()
 
 
 def _track_to_dict(t: Track, include_children: bool = False):
@@ -123,34 +149,26 @@ def create_track():
     original_name = secure_filename(file.filename)
     ext = os.path.splitext(original_name)[1]
     file_id = str(uuid.uuid4())
-    stored_name = f"{file_id}{ext}"
-    stored_path = os.path.join(settings.upload_dir, stored_name)
 
-    sha256 = hashlib.sha256()
-    with open(stored_path, "wb") as f:
-        chunk = file.stream.read(8192)
-        while chunk:
-            sha256.update(chunk)
-            f.write(chunk)
-            chunk = file.stream.read(8192)
+    # Read entire file into memory and compute checksum
+    file_data = file.read()
+    sha256 = hashlib.sha256(file_data)
     checksum = sha256.hexdigest()
 
-    audio_url = f"{settings.base_url.rstrip('/')}/media/{stored_name}"
+    # Generate audio URL for database-stored blob
+    audio_url = f"{settings.base_url.rstrip('/')}/media/{file_id}{ext}"
 
     db = SessionLocal()
     try:
         existing = db.query(Track).filter(Track.checksum_sha256 == checksum).first()
         if existing:
-            try:
-                os.remove(stored_path)
-            except Exception:
-                pass
             return jsonify({"track": _track_to_dict(existing)}), 200
 
+        # Store audio in database blob instead of filesystem
         track = Track(
             title=title,
             audio_url=audio_url,
-            audio_blob=None,
+            audio_blob=file_data,
             duration_seconds=None,
             sample_rate=None,
             checksum_sha256=checksum,
@@ -193,17 +211,7 @@ def delete_track(track_id):
         if not t:
             return jsonify({"error": "not found"}), 404
         
-        # Extract filename from audio_url to delete physical file
-        if t.audio_url:
-            try:
-                filename = t.audio_url.split('/media/')[-1]
-                file_path = os.path.join(settings.upload_dir, filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                # Log but don't fail if file deletion fails
-                print(f"Failed to delete file: {e}")
-        
+        # No need to remove files - stored in database
         db.delete(t)
         db.commit()
         return jsonify({"message": "deleted"}), 200
@@ -234,16 +242,21 @@ def analyze_track(track_id):
         db.commit()
         db.refresh(analysis)
         
-        # Extract local file path from audio_url
+        # Create temporary file from audio blob
+        import tempfile
+        temp_file = None
         try:
-            filename = track.audio_url.split('/media/')[-1]
-            audio_path = os.path.join(settings.upload_dir, filename)
-            
-            if not os.path.exists(audio_path):
+            if not track.audio_blob:
                 analysis.status = "failed"
-                analysis.summary = "Audio file not found on server"
+                analysis.summary = "Audio data not found"
                 db.commit()
-                return jsonify({"error": "audio file not found"}), 404
+                return jsonify({"error": "audio data not found"}), 404
+            
+            # Write blob to temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+            temp_file.write(track.audio_blob)
+            temp_file.close()
+            audio_path = temp_file.name
             
             # Perform music identification
             print(f"Identifying music for track: {track.title}")
@@ -312,6 +325,13 @@ def analyze_track(track_id):
                 "error": "Analysis failed",
                 "message": str(e)
             }), 500
+        finally:
+            # Clean up temporary file
+            if temp_file and os.path.exists(temp_file.name):
+                try:
+                    os.remove(temp_file.name)
+                except Exception as cleanup_error:
+                    print(f"Error cleaning up temp file: {cleanup_error}")
     finally:
         db.close()
 
@@ -360,7 +380,7 @@ def compare_tracks(track_id, compare_track_id):
         thread = threading.Thread(
             target=_process_comparison_async,
             args=(str(track_id), str(compare_track_id), str(analysis_id), 
-                  track1.title, track2.title, track1.audio_url, track2.audio_url)
+                  track1.title, track2.title, track1.audio_blob, track2.audio_blob)
         )
         thread.daemon = True
         thread.start()
@@ -380,12 +400,14 @@ def compare_tracks(track_id, compare_track_id):
 
 
 def _process_comparison_async(track_id, compare_track_id, analysis_id, 
-                               track1_title, track2_title, audio_url1, audio_url2):
+                               track1_title, track2_title, audio_blob1, audio_blob2):
     """
     Background task for processing track comparison.
     """
+    import tempfile
     db = SessionLocal()
     progress_key = analysis_id
+    temp_files = []
     
     try:
         # Get analysis object
@@ -401,15 +423,22 @@ def _process_comparison_async(track_id, compare_track_id, analysis_id,
             "message": f"Extracting features from {track1_title}..."
         }
         
-        # Extract local file paths
-        filename1 = audio_url1.split('/media/')[-1]
-        filename2 = audio_url2.split('/media/')[-1]
-        audio_path1 = os.path.join(settings.upload_dir, filename1)
-        audio_path2 = os.path.join(settings.upload_dir, filename2)
+        # Write audio blobs to temporary files for processing
+        temp_file1 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+        temp_file1.write(audio_blob1)
+        temp_file1.close()
+        audio_path1 = temp_file1.name
+        temp_files.append(audio_path1)
+        
+        temp_file2 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+        temp_file2.write(audio_blob2)
+        temp_file2.close()
+        audio_path2 = temp_file2.name
+        temp_files.append(audio_path2)
         
         if not os.path.exists(audio_path1):
             analysis.status = "failed"
-            analysis.summary = {"error": "Track 1 audio file not found on server"}
+            analysis.summary = {"error": "Failed to create temporary file for Track 1"}
             db.commit()
             progress_store[progress_key] = {
                 "status": "failed",
@@ -546,6 +575,13 @@ def _process_comparison_async(track_id, compare_track_id, analysis_id,
             "message": f"Error: {str(e)}"
         }
     finally:
+        # Clean up temporary files
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception as cleanup_error:
+                print(f"Error cleaning up temp file {temp_file}: {cleanup_error}")
         db.close()
 
 
@@ -657,7 +693,7 @@ def get_visualization(analysis_id, artifact_type):
         db.close()
 
 
-@app.post("/admin/fix-database-constraint")
+@app.route("/admin/fix-database-constraint", methods=["GET", "POST"])
 def fix_database_constraint():
     """
     Temporary endpoint to update the database constraint.
