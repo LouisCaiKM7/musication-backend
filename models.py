@@ -50,7 +50,7 @@ class Analysis(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "method IN ('chromaprint','hpcp','dtw','lyrics','music_identification','similarity_detection','other')",
+            "method IN ('chromaprint','hpcp','dtw','lyrics','music_identification','similarity_detection','melody_similarity','cover_detection','similarity_comparison','other')",
             name="analyses_method_check",
         ),
         CheckConstraint(
@@ -79,7 +79,7 @@ class Artifact(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "artifact_type IN ('chromaprint','hpcp','dtw_matrix','dtw_path','plot_image','feature_json','music_matches','other')",
+            "artifact_type IN ('chromaprint','hpcp','dtw_matrix','dtw_path','plot_image','feature_json','music_matches','chroma_heatmap','dtw_heatmap','melody_contours','segments_timeline','summary_dashboard','similarity_report','other')",
             name="artifacts_type_check",
         ),
         CheckConstraint(

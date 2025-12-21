@@ -6,6 +6,7 @@ flask-cors
 psycopg[binary]
 gunicorn
 librosa
+flask
 numpy
 scipy
 pydub
@@ -13,3 +14,7 @@ torch
 audioread
 requests
 matplotlib
+seaborn
+scikit-learn
+crepe
+resampy
