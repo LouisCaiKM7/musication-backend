@@ -657,7 +657,51 @@ def get_visualization(analysis_id, artifact_type):
         db.close()
 
 
+@app.post("/admin/fix-database-constraint")
+def fix_database_constraint():
+    """
+    Temporary endpoint to update the database constraint.
+    DELETE THIS AFTER RUNNING ONCE!
+    """
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            # Drop old constraint
+            conn.execute(text("""
+                ALTER TABLE analyses DROP CONSTRAINT IF EXISTS analyses_method_check;
+            """))
+            
+            # Add updated constraint
+            conn.execute(text("""
+                ALTER TABLE analyses ADD CONSTRAINT analyses_method_check 
+                CHECK (method IN (
+                    'chromaprint','hpcp','dtw','lyrics','music_identification',
+                    'similarity_detection','melody_similarity','cover_detection',
+                    'similarity_comparison','other'
+                ));
+            """))
+            
+            # Verify
+            result = conn.execute(text("""
+                SELECT pg_get_constraintdef(oid) 
+                FROM pg_constraint 
+                WHERE conname = 'analyses_method_check';
+            """))
+            constraint_def = result.fetchone()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Database constraint updated successfully",
+            "constraint": constraint_def[0] if constraint_def else None
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 if __name__ == "__main__":
     # Use PORT from environment (Render sets this) or fall back to settings
     port = int(os.environ.get("PORT", settings.port))
-    app.run(host="0.0.0.0", port=port, debug=(settings.flask_env == "development"))
+    app.run(host="0.0.0.0", port=port, debug=(settings.flask_env != "production"))
