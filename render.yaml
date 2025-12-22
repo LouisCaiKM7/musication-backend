@@ -16,7 +16,7 @@ services:
       - key: BASE_URL
         sync: false
       - key: FRONTEND_URL
-        value: https://musication.netlify.app/
+        value: https://musicationapp.netlify.app
 
 databases:
   - name: musication-db

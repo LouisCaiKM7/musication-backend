@@ -36,10 +36,13 @@ progress_store = {}
 allowed_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "https://musicationapp.netlify.app",  # Production frontend
 ]
 # Add production frontend URL from environment if available
 if os.getenv("FRONTEND_URL"):
-    allowed_origins.append(os.getenv("FRONTEND_URL"))
+    frontend_url = os.getenv("FRONTEND_URL").rstrip('/')
+    if frontend_url not in allowed_origins:
+        allowed_origins.append(frontend_url)
 
 CORS(app, resources={r"/*": {"origins": allowed_origins if settings.flask_env == "production" else "*"}})
 
