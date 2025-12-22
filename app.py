@@ -696,6 +696,36 @@ def get_visualization(analysis_id, artifact_type):
         db.close()
 
 
+@app.route("/admin/clear-old-tracks", methods=["GET", "POST"])
+def clear_old_tracks():
+    """
+    Delete all tracks without audio_blob (uploaded with old code).
+    """
+    db = SessionLocal()
+    try:
+        # Find tracks without audio_blob
+        old_tracks = db.query(Track).filter(Track.audio_blob == None).all()
+        count = len(old_tracks)
+        
+        # Delete them
+        for track in old_tracks:
+            db.delete(track)
+        db.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Deleted {count} old tracks without audio data",
+            "count": count
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    finally:
+        db.close()
+
+
 @app.route("/admin/fix-database-constraint", methods=["GET", "POST"])
 def fix_database_constraint():
     """
