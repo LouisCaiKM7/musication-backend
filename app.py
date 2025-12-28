@@ -620,10 +620,11 @@ def get_analysis(analysis_id):
             if artifact.data_url:
                 artifact_data["data_url"] = artifact.data_url
             
-            # Include base64 for images
+            # Don't include base64 inline to avoid slow response
+            # Frontend should fetch images separately via /analyses/{id}/visualizations/{type}
             if artifact.data_blob and artifact.content_type == "image/png":
-                import base64
-                artifact_data["base64"] = base64.b64encode(artifact.data_blob).decode('utf-8')
+                artifact_data["has_image"] = True
+                artifact_data["image_url"] = f"/analyses/{analysis_id}/visualizations/{artifact.artifact_type}"
             
             artifacts.append(artifact_data)
         
