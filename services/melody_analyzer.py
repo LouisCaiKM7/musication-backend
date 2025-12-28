@@ -31,7 +31,8 @@ class MelodyAnalyzer:
         """
         self.sample_rate = sample_rate
         self.hop_length = hop_length
-        self.n_fft = 2048
+        # Reduce FFT size to save memory (1024 instead of 2048)
+        self.n_fft = 1024
         self.enable_melody = enable_melody
         
     def load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:

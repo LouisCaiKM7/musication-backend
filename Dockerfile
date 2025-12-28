@@ -32,4 +32,5 @@ ENV FPCALC=/usr/bin/fpcalc
 
 # Run with gunicorn (Railway uses $PORT environment variable)
 # Use shell form to allow environment variable expansion
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 300 --worker-class gevent app:app"]
+# Single worker to reduce memory usage (audio processing is memory intensive)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --threads 2 --timeout 600 --worker-class gevent --max-requests 100 --max-requests-jitter 10 app:app"]

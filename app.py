@@ -25,7 +25,12 @@ from models import Base, Track, Analysis, Artifact
 from services.music_identifier import identify_music
 from services.audio_analyzer import AudioAnalyzer
 from services.similarity_comparator import SimilarityComparator
-from services.visualization_generator import VisualizationGenerator
+# Use lightweight visualization to save memory
+import os
+if os.getenv("USE_LITE_VIZ", "true").lower() == "true":
+    from services.visualization_generator_lite import VisualizationGenerator
+else:
+    from services.visualization_generator import VisualizationGenerator
 
 app = Flask(__name__)
 
@@ -474,7 +479,8 @@ def _process_comparison_async(track_id, compare_track_id, analysis_id,
         # Disable melody analysis in production to save memory (Render free tier has 512MB RAM limit)
         enable_melody = os.getenv("ENABLE_MELODY_ANALYSIS", "false").lower() == "true"
         print(f"[ASYNC] Melody analysis: {'enabled' if enable_melody else 'disabled (memory saving mode)'}")
-        comparator = SimilarityComparator(sample_rate=22050, enable_melody=enable_melody)
+        # Use lower sample rate to reduce memory usage (16000 instead of 22050)
+        comparator = SimilarityComparator(sample_rate=16000, enable_melody=enable_melody)
         
         print(f"[ASYNC] Extracting features from track 1: {audio_path1}")
         progress_store[progress_key] = {
