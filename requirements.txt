@@ -1,21 +1,29 @@
-Flask
-SQLAlchemy
-python-dotenv
-alembic
-flask-cors
-psycopg[binary]
-gunicorn
-gevent
-librosa
-flask
-numpy
-scipy
-pydub
-torch
-audioread
-requests
-matplotlib
-seaborn
-scikit-learn
-crepe
-resampy
+# Core Flask dependencies
+Flask==3.0.0
+SQLAlchemy==2.0.23
+python-dotenv==1.0.0
+alembic==1.13.1
+flask-cors==4.0.0
+psycopg[binary]==3.1.13
+gunicorn==21.2.0
+gevent==23.9.1
+
+# Audio processing
+librosa==0.10.1
+numpy==1.24.3
+scipy==1.11.4
+pydub==0.25.1
+audioread==3.0.1
+requests==2.31.0
+
+# Visualization (kept for full functionality)
+matplotlib==3.8.2
+seaborn==0.13.0
+Pillow==10.1.0
+
+# Removed ONLY the heaviest packages to stay under 4GB limit:
+# - torch (~700MB) - using librosa.pyin instead of CREPE for melody analysis
+# - crepe (~100MB) - replaced with librosa built-in pitch detection
+# - scikit-learn (~30MB) - not essential for core features
+#
+# Kept matplotlib/seaborn (~60MB total) for full visualization support
