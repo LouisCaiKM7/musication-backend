@@ -3,7 +3,7 @@ services:
     name: musication-backend
     runtime: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --timeout 300 --workers 2 --threads 4"
+    startCommand: "gunicorn app:app --timeout 1000 --workers 1 --threads 2 --worker-class gevent"
     envVars:
       - key: FLASK_ENV
         value: production

@@ -5,6 +5,7 @@ alembic
 flask-cors
 psycopg[binary]
 gunicorn
+gevent
 librosa
 flask
 numpy

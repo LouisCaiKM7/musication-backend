@@ -14,15 +14,17 @@ class SimilarityComparator:
     Compares two audio tracks to detect plagiarism or cover songs.
     """
     
-    def __init__(self, sample_rate: int = 22050):
+    def __init__(self, sample_rate: int = 22050, enable_melody: bool = True):
         """
         Initialize the SimilarityComparator.
         
         Args:
             sample_rate: Target sample rate for audio processing
+            enable_melody: Whether to enable CREPE melody analysis (memory intensive)
         """
         self.sample_rate = sample_rate
-        self.analyzer = MelodyAnalyzer(sample_rate=sample_rate)
+        self.enable_melody = enable_melody
+        self.analyzer = MelodyAnalyzer(sample_rate=sample_rate, enable_melody=enable_melody)
         
     def load_and_extract_features(self, audio_path: str) -> Dict:
         """

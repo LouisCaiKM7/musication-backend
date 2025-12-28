@@ -471,7 +471,10 @@ def _process_comparison_async(track_id, compare_track_id, analysis_id,
         }
         
         print(f"[ASYNC] Creating comparator...")
-        comparator = SimilarityComparator(sample_rate=22050)
+        # Disable melody analysis in production to save memory (Render free tier has 512MB RAM limit)
+        enable_melody = os.getenv("ENABLE_MELODY_ANALYSIS", "false").lower() == "true"
+        print(f"[ASYNC] Melody analysis: {'enabled' if enable_melody else 'disabled (memory saving mode)'}")
+        comparator = SimilarityComparator(sample_rate=22050, enable_melody=enable_melody)
         
         print(f"[ASYNC] Extracting features from track 1: {audio_path1}")
         progress_store[progress_key] = {

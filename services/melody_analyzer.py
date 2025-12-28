@@ -20,17 +20,19 @@ class MelodyAnalyzer:
     Implements techniques from music information retrieval research.
     """
     
-    def __init__(self, sample_rate: int = 22050, hop_length: int = 512):
+    def __init__(self, sample_rate: int = 22050, hop_length: int = 512, enable_melody: bool = True):
         """
         Initialize the MelodyAnalyzer.
         
         Args:
             sample_rate: Target sample rate for audio processing
             hop_length: Number of samples between successive frames
+            enable_melody: Whether to enable CREPE melody analysis (memory intensive)
         """
         self.sample_rate = sample_rate
         self.hop_length = hop_length
         self.n_fft = 2048
+        self.enable_melody = enable_melody
         
     def load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:
         """
@@ -345,9 +347,19 @@ class MelodyAnalyzer:
         # Extract features
         chroma_cqt = self.extract_chroma_cqt(y, sr)
         hpcp = self.extract_hpcp(y, sr)
-        f0, voiced_flag = self.extract_melody_contour(y, sr, method='pyin')
-        f0_smoothed = self.smooth_melody(f0)
-        midi_notes = self.convert_f0_to_midi(f0_smoothed)
+        
+        # Only extract melody if enabled (memory intensive)
+        if self.enable_melody:
+            f0, voiced_flag = self.extract_melody_contour(y, sr, method='pyin')
+            f0_smoothed = self.smooth_melody(f0)
+            midi_notes = self.convert_f0_to_midi(f0_smoothed)
+        else:
+            # Placeholder values when melody analysis is disabled
+            n_frames = chroma_cqt.shape[1]
+            f0 = np.zeros(n_frames)
+            f0_smoothed = np.zeros(n_frames)
+            midi_notes = np.zeros(n_frames)
+            voiced_flag = np.zeros(n_frames, dtype=bool)
         
         # Beat synchronization
         chroma_sync, beat_times = self.beat_synchronize_features(chroma_cqt, y, sr)

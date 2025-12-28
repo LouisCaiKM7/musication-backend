@@ -30,5 +30,5 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV FPCALC=/usr/bin/fpcalc
 
-# Run with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "app:app"]
+# Run with gunicorn (Railway uses $PORT environment variable)
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --worker-class gevent app:app
