@@ -31,4 +31,5 @@ ENV PYTHONUNBUFFERED=1
 ENV FPCALC=/usr/bin/fpcalc
 
 # Run with gunicorn (Railway uses $PORT environment variable)
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --worker-class gevent app:app
+# Use shell form to allow environment variable expansion
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 300 --worker-class gevent app:app"]
